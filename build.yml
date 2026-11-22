@@ -1,0 +1,46 @@
+name: build-windows
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # 저장소 맨 위에 올려 둔 zip 을 풀어서 package.json 이 있는 폴더를 찾는다
+      - name: unzip
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -Path . -Filter *.zip | Select-Object -First 1
+          if (-not $zip) { throw "저장소 맨 위에 zip 파일이 없습니다" }
+          Expand-Archive -Path $zip.FullName -DestinationPath app -Force
+          $pkg = Get-ChildItem -Path app -Recurse -Filter package.json -Depth 2 | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object -First 1
+          if (-not $pkg) { throw "zip 안에서 package.json 을 찾지 못했습니다" }
+          "APP_DIR=$($pkg.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - run: npm install
+        working-directory: ${{ env.APP_DIR }}
+      - run: npm test
+        working-directory: ${{ env.APP_DIR }}
+      - name: build x64
+        working-directory: ${{ env.APP_DIR }}
+        run: npx electron-builder --win --x64 --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: build ia32
+        working-directory: ${{ env.APP_DIR }}
+        run: npx electron-builder --win --ia32 -c.publish.channel=ia32 --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evergreen-win-installers
+          path: |
+            ${{ env.APP_DIR }}/dist/*.exe
+            ${{ env.APP_DIR }}/dist/*.yml
