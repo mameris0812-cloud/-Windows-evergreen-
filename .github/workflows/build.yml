@@ -38,11 +38,13 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
       - name: build x64
         working-directory: ${{ env.APP_DIR }}
+        shell: bash
         run: npx electron-builder --win --x64 --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: build ia32
         working-directory: ${{ env.APP_DIR }}
+        shell: bash
         run: npx electron-builder --win --ia32 -c.publish.channel=ia32 --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
