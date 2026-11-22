@@ -24,6 +24,14 @@ jobs:
           $pkg = Get-ChildItem -Path app -Recurse -Filter package.json -Depth 2 | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object -First 1
           if (-not $pkg) { throw "zip 안에서 package.json 을 찾지 못했습니다" }
           "APP_DIR=$($pkg.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      # zip 을 푼 폴더에는 .git 이 없어서 저장소 주소를 못 찾으므로 package.json 에 직접 적어 준다
+      - name: set repository
+        shell: bash
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("package.json","utf8"));p.repository="https://github.com/"+process.env.REPO;fs.writeFileSync("package.json",JSON.stringify(p,null,2))'
       - run: npm install
         working-directory: ${{ env.APP_DIR }}
       - run: npm test
